@@ -56,20 +56,22 @@ pipeline {
         }
 
         stage('Deploy to Kubernetes') {
-            steps {
-                echo 'Deploying to Kubernetes...'
-                withCredentials([string(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_CONTENT')]) {
-                    sh """
-			echo "${KUBECONFIG_CONTENT}" > /tmp/kubeconfig
-			export KUBECONFIG=/tmp/kubeconfig
-                        kubectl set image deployment/backend backend=docker.io/ashenellawala/todo-backend:${BUILD_NUMBER}
-                        kubectl set image deployment/frontend frontend=docker.io/ashenellawala/todo-frontend:${BUILD_NUMBER}
-			kubectl rollout status deployment/backend
-			kubectl rollout status deployment/frontend
-                    """
-                }
-            }
-        }
+	   steps {
+       		 echo 'Deploying to Kubernetes...'
+        	withCredentials([string(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_CONTENT')]) {
+            	  sh """
+                    echo "\${KUBECONFIG_CONTENT}" | base64 -d > /tmp/kubeconfig
+                    export KUBECONFIG=/tmp/kubeconfig
+                    kubectl set image deployment/backend \
+                      backend=docker.io/ashenellawala/todo-backend:${BUILD_NUMBER}
+                    kubectl set image deployment/frontend \
+                      frontend=docker.io/ashenellawala/todo-frontend:${BUILD_NUMBER}
+                   kubectl rollout status deployment/backend
+                   kubectl rollout status deployment/frontend
+              """
+             }
+   	   }
+	}
 
         stage('Verify Deployment') {
             steps {
