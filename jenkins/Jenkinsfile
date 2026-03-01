@@ -1,15 +1,18 @@
 pipeline {
     agent any
-    
+
+    tools {
+        nodejs 'node-18'
+    }
+
     environment {
-        DOCKERHUB_USERNAME = 'AshenEllawala'
-        BACKEND_IMAGE = "${DOCKERHUB_USERNAME}/todo-backend"
-        FRONTEND_IMAGE = "${DOCKERHUB_USERNAME}/todo-frontend"
+        DOCKERHUB_USERNAME = 'ashenellawala'
+        BACKEND_IMAGE = "docker.io/${DOCKERHUB_USERNAME}/todo-backend"
+        FRONTEND_IMAGE = "docker.io/${DOCKERHUB_USERNAME}/todo-frontend"
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 echo 'Pulling the code from GitHub...'
@@ -17,7 +20,7 @@ pipeline {
             }
         }
 
-        stage('Test backend') {
+        stage('Test Backend') {
             steps {
                 echo 'Running backend tests...'
                 dir('backend') {
@@ -31,9 +34,8 @@ pipeline {
             steps {
                 echo 'Building Docker images...'
                 sh """
-                    docker build -t ${BACKEND_IMAGE}:${BUILD_NUMBER} ./backend 
+                    docker build -t ${BACKEND_IMAGE}:${BUILD_NUMBER} ./backend
                     docker build -t ${FRONTEND_IMAGE}:${BUILD_NUMBER} ./frontend
-
                     docker tag ${BACKEND_IMAGE}:${BUILD_NUMBER} ${BACKEND_IMAGE}:latest
                     docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER} ${FRONTEND_IMAGE}:latest
                 """
@@ -45,10 +47,8 @@ pipeline {
                 echo 'Pushing Docker images to Docker Hub...'
                 sh """
                     echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
-
                     docker push ${BACKEND_IMAGE}:${BUILD_NUMBER}
                     docker push ${BACKEND_IMAGE}:latest
-
                     docker push ${FRONTEND_IMAGE}:${BUILD_NUMBER}
                     docker push ${FRONTEND_IMAGE}:latest
                 """
@@ -89,7 +89,7 @@ pipeline {
         }
         always {
             echo 'Cleaning up Docker images...'
-            sh 'docker system prune -f'
+            sh 'docker system prune -f || true'
         }
     }
 }
