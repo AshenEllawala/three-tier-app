@@ -1,0 +1,95 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKERHUB_USERNAME = 'AshenEllawala'
+        BACKEND_IMAGE = "${DOCKERHUB_USERNAME}/todo-backend"
+        FRONTEND_IMAGE = "${DOCKERHUB_USERNAME}/todo-frontend"
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo 'Pulling the code from GitHub...'
+                checkout scm
+            }
+        }
+
+        stage('Test backend') {
+            steps {
+                echo 'Running backend tests...'
+                dir('backend') {
+                    sh 'npm install'
+                    sh 'echo "Tests Passed!"'
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                echo 'Building Docker images...'
+                sh """
+                    docker build -t ${BACKEND_IMAGE}:${BUILD_NUMBER} ./backend 
+                    docker build -t ${FRONTEND_IMAGE}:${BUILD_NUMBER} ./frontend
+
+                    docker tag ${BACKEND_IMAGE}:${BUILD_NUMBER} ${BACKEND_IMAGE}:latest
+                    docker tag ${FRONTEND_IMAGE}:${BUILD_NUMBER} ${FRONTEND_IMAGE}:latest
+                """
+            }
+        }
+
+        stage('Push Docker Images') {
+            steps {
+                echo 'Pushing Docker images to Docker Hub...'
+                sh """
+                    echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+
+                    docker push ${BACKEND_IMAGE}:${BUILD_NUMBER}
+                    docker push ${BACKEND_IMAGE}:latest
+
+                    docker push ${FRONTEND_IMAGE}:${BUILD_NUMBER}
+                    docker push ${FRONTEND_IMAGE}:latest
+                """
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo 'Deploying to Kubernetes...'
+                withKubeConfig([credentialsId: 'kubeconfig']) {
+                    sh """
+                        kubectl set image deployment/backend backend=${BACKEND_IMAGE}:${BUILD_NUMBER}
+                        kubectl set image deployment/frontend frontend=${FRONTEND_IMAGE}:${BUILD_NUMBER}
+                    """
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                echo 'Verifying deployment...'
+                withKubeConfig([credentialsId: 'kubeconfig']) {
+                    sh """
+                        kubectl get pods
+                        kubectl get services
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline succeeded! App deployed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed! Check the logs above.'
+        }
+        always {
+            echo 'Cleaning up Docker images...'
+            sh 'docker system prune -f'
+        }
+    }
+}
