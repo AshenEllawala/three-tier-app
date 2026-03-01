@@ -1,17 +1,14 @@
 pipeline {
     agent any
-
     tools {
         nodejs 'node-18'
     }
-
     environment {
         DOCKERHUB_USERNAME = 'ashenellawala'
         BACKEND_IMAGE = "docker.io/${DOCKERHUB_USERNAME}/todo-backend"
         FRONTEND_IMAGE = "docker.io/${DOCKERHUB_USERNAME}/todo-frontend"
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
     }
-
     stages {
         stage('Checkout') {
             steps {
@@ -19,7 +16,6 @@ pipeline {
                 checkout scm
             }
         }
-
         stage('Test Backend') {
             steps {
                 echo 'Running backend tests...'
@@ -29,7 +25,6 @@ pipeline {
                 }
             }
         }
-
         stage('Build Docker Images') {
             steps {
                 echo 'Building Docker images...'
@@ -41,7 +36,6 @@ pipeline {
                 """
             }
         }
-
         stage('Push Docker Images') {
             steps {
                 echo 'Pushing Docker images to Docker Hub...'
@@ -54,48 +48,41 @@ pipeline {
                 """
             }
         }
-
         stage('Deploy to Kubernetes') {
-	   steps {
-       		 echo 'Deploying to Kubernetes...'
-        	withCredentials([string(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_CONTENT')]) {
-            	  sh """
-                    echo "\${KUBECONFIG_CONTENT}" | base64 -d > /tmp/kubeconfig
-                    export KUBECONFIG=/tmp/kubeconfig
+            steps {
+                echo 'Deploying to Kubernetes...'
+                sh """
+                    export KUBECONFIG=/home/ashen/.kube/config
                     kubectl set image deployment/backend \
-                      backend=docker.io/ashenellawala/todo-backend:${BUILD_NUMBER}
+                        backend=docker.io/ashenellawala/todo-backend:${BUILD_NUMBER}
                     kubectl set image deployment/frontend \
-                      frontend=docker.io/ashenellawala/todo-frontend:${BUILD_NUMBER}
-                   kubectl rollout status deployment/backend
-                   kubectl rollout status deployment/frontend
-              """
-             }
-   	   }
-	}
-
+                        frontend=docker.io/ashenellawala/todo-frontend:${BUILD_NUMBER}
+                    kubectl rollout status deployment/backend
+                    kubectl rollout status deployment/frontend
+                """
+            }
+        }
         stage('Verify Deployment') {
             steps {
                 echo 'Verifying deployment...'
-                withKubeConfig([credentialsId: 'kubeconfig']) {
-                    sh """
-                        kubectl get pods
-                        kubectl get services
-                    """
-                }
+                sh """
+                    export KUBECONFIG=/home/ashen/.kube/config
+                    kubectl get pods
+                    kubectl get services
+                """
             }
         }
     }
-
     post {
         success {
-            echo 'Pipeline succeeded! App deployed successfully!'
+            echo '🎉 Pipeline succeeded! App deployed successfully!'
         }
         failure {
-            echo 'Pipeline failed! Check the logs above.'
+            echo '❌ Pipeline failed! Check the logs above.'
         }
         always {
-            echo 'Cleaning up Docker images...'
-            sh 'docker system prune -f || true'
+            echo '🧹 Cleaning up Docker images...'
+            sh 'docker system prune -f'
         }
     }
 }
