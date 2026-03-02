@@ -1,18 +1,17 @@
-
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres
 spec:
   serviceName: "postgres-service"
-  replicas: 1 # by default is 1
+  replicas: 1
   selector:
-   matchLabels:
-     app: postgres
+    matchLabels:
+      app: postgres
   template:
     metadata:
       labels:
-        app: postgres # has to match .spec.selector.matchLabels
+        app: postgres
     spec:
       containers:
       - name: postgres
@@ -35,6 +34,29 @@ spec:
             secretKeyRef:
               name: postgres-secret
               key: POSTGRES_DB
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+        livenessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+              - pg_isready
+              - -U
+              - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
         volumeMounts:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
@@ -42,7 +64,7 @@ spec:
   - metadata:
       name: postgres-storage
     spec:
-      accessModes: [ "ReadWriteOnce" ]
+      accessModes: ["ReadWriteOnce"]
       resources:
         requests:
           storage: 1Gi
