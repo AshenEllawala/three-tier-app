@@ -3,6 +3,11 @@ pipeline {
     tools {
         nodejs 'node-18'
     }
+
+    triggers {
+        pollSCM('*/****')
+    }
+
     environment {
         DOCKERHUB_USERNAME = 'ashenellawala'
         BACKEND_IMAGE = "docker.io/${DOCKERHUB_USERNAME}/todo-backend"
